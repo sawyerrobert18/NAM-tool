@@ -1,0 +1,4 @@
+animal impact and in alternative tab the total number of animals killed is not the same as it should be the same 
+we should also add the specifics of how much of each product was used in the experiment
+experiments should be classified into subtypes as this app only runs documentation for cell lines not for other stuff like cell assays, ELISA and stuff. 
+we should keep the aesthetic to low maybe use matplot lib to use graphs if that is easier
