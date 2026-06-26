@@ -190,8 +190,8 @@ def fmt_n(n):
 
 def perf_label(p):
     pl = p.strip().lower()
-    if pl == "drop-in":       return "Drop-in replacement"
-    if "optimization" in pl:  return "Optimization required"
+    if pl == "drop-in":       return "Direct substitute"
+    if "optimization" in pl:  return "Needs optimization"
     return p
 
 
@@ -345,13 +345,14 @@ def make_bar_chart(results):
 def build_pdf(cl_name, exp_type_key, inputs, results, warnings, citations):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_margins(20, 20, 20)
-    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.set_margins(15, 15, 15)
+    pdf.set_auto_page_break(auto=True, margin=15)
 
     def ln(text, bold=False, sz=10, indent=0):
         pdf.set_font("Helvetica", "B" if bold else "", sz)
-        if indent: pdf.set_x(20 + indent)
-        pdf.multi_cell(0, 5, sanitize_pdf(str(text)))
+        pdf.set_x(pdf.l_margin)          # always reset — avoids narrow-width crash
+        prefix = "  " * indent if indent else ""
+        pdf.multi_cell(0, 5, sanitize_pdf(prefix + str(text)))
 
     ln("NAM Animal Impact Calculator -- Results Report", bold=True, sz=15)
     ln("Every number cites a source. Open source, MIT license.", sz=8)
@@ -408,8 +409,8 @@ def build_pdf(cl_name, exp_type_key, inputs, results, warnings, citations):
         if key in seen: continue
         seen.add(key)
         ln(f"[{idx}] {c['what']}", sz=7)
-        ln(f"    Source: {c['source']}", sz=7, indent=4)
-        if c.get("url"): ln(f"    {c['url']}", sz=7, indent=4)
+        ln(f"    Source: {c['source']}", sz=7)
+        if c.get("url"): ln(f"    {c['url']}", sz=7)
         pdf.ln(1)
         idx += 1
 
@@ -481,10 +482,11 @@ def main():
             if v_opts.empty: continue
             r_name = reagents[reagents["reagent_id"] == rid]["name"].values
             label  = r_name[0] if len(r_name) else rid
-            v_labels = {
-                f"{vr['vendor_name']} {vr['catalog_number']} ({vr['pack_size']}, ${vr['cost_per_unit_usd']})": vr["vendor_id"]
-                for _, vr in v_opts.iterrows()
-            }
+            def _vlabel(vr):
+                cost_raw = str(vr["cost_per_unit_usd"]).lower()
+                price = "price on request" if any(k in cost_raw for k in ("login", "require", "n/a", "")) else f"${vr['cost_per_unit_usd']}"
+                return f"{vr['vendor_name']} {vr['catalog_number']} ({vr['pack_size']}, {price})"
+            v_labels = {_vlabel(vr): vr["vendor_id"] for _, vr in v_opts.iterrows()}
             chosen = st.sidebar.selectbox(f"Vendor -- {label}", list(v_labels.keys()))
             vendor_sels[rid] = v_labels[chosen]
 
@@ -535,19 +537,23 @@ def main():
                 plt.close(fig)
 
             st.markdown("---")
+            # Only show calculable reagents in the table — NOT CALCULABLE ones already have a red banner above
             table_rows = []
-            for r in results:
+            for r in [r for r in results if not r.get("not_calculable")]:
                 unp = "NOT-KILLED" in r["animals_killed"].upper()
                 table_rows.append({
                     "Reagent": r["name"] + (" *" if r.get("is_tier2") else ""),
                     "Amount used": r.get("amount_display", "N/A"),
                     "Category": cat_label(r["category"]),
-                    "Animals/unit": ("N/A" if r.get("not_calculable") else f"{r['animals_per_unit']} per {r['unit']}"),
-                    "Animals killed": ("NOT CALCULABLE" if r.get("not_calculable") else ("0 (dagger)" if unp else fmt_n(r["animals_total"]))),
+                    "Animals / unit": f"{r['animals_per_unit']} per {r['unit']}",
+                    "Animals killed": "0 (used not killed)" if unp else fmt_n(r["animals_total"]),
                     "Cost": (f"${r['current_cost']:.2f}" if r.get("current_cost") else "N/A"),
                 })
             if table_rows:
                 st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
+            elif not [w for w in warnings if w["type"] == "not_calculable"]:
+                st.info("No calculable animal-derived reagents detected for this selection. "
+                        "If using a serum-free cell line (e.g. iPSC/mTeSR1), this is expected.")
 
             st.markdown("---")
             for r in calc_results:
