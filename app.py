@@ -1,5 +1,5 @@
 """
-NAM Animal Impact Calculator  v1.3
+NAM Animal Impact Calculator  v1.4
 Run with:  streamlit run app.py
 License:   MIT
 """
@@ -92,11 +92,6 @@ EXPERIMENT_TYPES = {
 NOT_CALCULABLE_RIDS = set()
 EHS_MATRIX_RIDS    = {"R005", "R010"}   # murine EHS matrix — application-specific alt warning
 NO_ANIMAL_RIDS     = {"R012", "R013", "R014", "R015", "R016", "R017"}
-# Coating reagents that need a manual mL quantity when present (from a cell line or experiment)
-COATING_DEFAULTS   = {
-    "R005": ("Matrigel used (mL)", 1.0),
-    "R010": ("Laminin-111 coating used (mL)", 0.0),
-}
 VESSEL_CITATION    = "ATCC Complete Guide to Cell Culture; Corning Cell Culture Guide."
 TRYPSIN_VOL_CITATION = "Corning Cell Culture Guide -- standard trypsin dissociation volumes."
 
@@ -343,6 +338,7 @@ def calculate_impact(cl_row, vessel_type, n_vessels, duration_days, change_freq_
             "animals_per_unit": mid, "unit": r["unit"], "animals_total": animals_total,
             "category": r["animal_use_category"], "animals_killed": r["animals_killed"],
             "is_tier2": is_tier2, "vendor": vrow, "cost_per_L": cpl, "current_cost": cost,
+            "price_on_request": (vrow is not None and cost is None),
             "alternatives": these_alts,
             "source_citation": r["source_citation"], "source_url": r["source_url"],
         })
@@ -484,25 +480,33 @@ def main():
         n_vessels   = int(st.sidebar.number_input("Number of vessels", 1, value=6, step=1))
         duration    = int(st.sidebar.number_input("Experiment duration (days)", 1, value=14, step=1))
         freq        = st.sidebar.number_input("Media change / passage every N days", 0.5, value=3.0, step=0.5)
-        st.sidebar.markdown("---")
-        default_pct = cl_row["serum_pct"] if cl_row is not None else "10"
-        if st.sidebar.checkbox(f"Override serum % (default: {default_pct})"):
-            serum_override = float(st.sidebar.slider("FBS %", 0, 20, 10))
-
-    # reagents needing a manual quantity: experiment-defined + coating reagents from the cell line
-    needed = dict(exp_type["extra_reagents"])
+    # ----- manual amounts: one input per animal-derived reagent in this selection -----
+    relevant = []
     if exp_type["uses_cell_line"] and cl_row is not None:
-        for rid in parse_components(cl_row["animal_derived_components"]):
-            if rid in COATING_DEFAULTS and rid not in needed:
-                needed[rid] = COATING_DEFAULTS[rid]
+        relevant += parse_components(cl_row["animal_derived_components"])
+    for rid in exp_type["extra_reagents"]:
+        if rid not in relevant:
+            relevant.append(rid)
+    relevant = [rid for rid in relevant if rid not in NO_ANIMAL_RIDS]
 
     extra_quantities = {}
-    if needed:
+    if relevant:
         st.sidebar.markdown("---")
-        st.sidebar.subheader("Reagent quantities")
-        for rid, (label, default) in needed.items():
-            qty = st.sidebar.number_input(label, min_value=0.0, value=float(default), step=0.05, key=f"qty_{rid}")
-            if qty > 0: extra_quantities[rid] = qty
+        st.sidebar.subheader("Amounts used")
+        st.sidebar.caption("Enter how much of each animal-derived reagent you used. "
+                           "Leave at 0 to auto-calculate serum/trypsin from the culture setup, "
+                           "or to omit a reagent you did not use.")
+        for rid in relevant:
+            rdf = reagents[reagents["reagent_id"] == rid]
+            if rdf.empty:
+                continue
+            rr = rdf.iloc[0]
+            u = rr["unit"].strip().lower()
+            in_unit = "mL" if (u == "ml" or "liter" in u) else "g"
+            qty = st.sidebar.number_input(f"{rr['name']} ({in_unit})",
+                                          min_value=0.0, value=0.0, step=0.05, key=f"qty_{rid}")
+            if qty > 0:
+                extra_quantities[rid] = qty
 
     component_ids = []
     if exp_type["uses_cell_line"] and cl_row is not None:
@@ -585,7 +589,8 @@ def main():
                     "Category": cat_label(r["category"]),
                     "Animals / unit": f"{r['animals_per_unit']} per {r['unit']}",
                     "Animals killed": "0 (used not killed)" if unp else fmt_n(r["animals_total"]),
-                    "Cost": (f"${r['current_cost']:.2f}" if r.get("current_cost") else "N/A"),
+                    "Cost": (f"${r['current_cost']:.2f}" if r.get("current_cost")
+                             else ("price on request" if r.get("price_on_request") else "N/A")),
                 })
             if table_rows:
                 st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
@@ -644,7 +649,8 @@ def main():
                 hdr1, hdr2 = st.columns(2)
                 if not r.get("not_calculable"):
                     hdr1.metric("Current: animals killed", "0 (dagger)" if unp else fmt_n(r["animals_total"]))
-                    hdr2.metric("Current: cost", f"${r['current_cost']:.2f}" if r.get("current_cost") else "N/A")
+                    hdr2.metric("Current: cost", f"${r['current_cost']:.2f}" if r.get("current_cost")
+                                else ("price on request" if r.get("price_on_request") else "N/A"))
                 else:
                     st.info("NOT CALCULABLE -- see warning above.")
 
