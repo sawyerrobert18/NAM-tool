@@ -1,5 +1,5 @@
 """
-NAM Animal Impact Calculator  v1.1
+NAM Animal Impact Calculator  v1.3
 Run with:  streamlit run app.py
 License:   MIT
 """
@@ -80,13 +80,23 @@ EXPERIMENT_TYPES = {
     },
     "Organoid / 3D culture": {
         "uses_cell_line": True, "uses_vessels": True,
-        "extra_reagents": {},
+        "extra_reagents": {"R005": ("Matrigel used (mL)", 1.0),
+                           "R010": ("Laminin-111 used (mL)", 0.0)},
         "desc": "3D organoid culture requiring Matrigel or equivalent matrix.",
     },
 }
 
-NOT_CALCULABLE_RIDS = {"R005", "R010"}
+# R005 (Matrigel) / R010 (Laminin) are now modelled as Tier-2 estimates, so they
+# are no longer "not calculable". NOT_CALCULABLE_RIDS stays as an empty set so the
+# generic N/A-mid guard in calculate_impact still works for any future reagent.
+NOT_CALCULABLE_RIDS = set()
+EHS_MATRIX_RIDS    = {"R005", "R010"}   # murine EHS matrix — application-specific alt warning
 NO_ANIMAL_RIDS     = {"R012", "R013", "R014", "R015", "R016", "R017"}
+# Coating reagents that need a manual mL quantity when present (from a cell line or experiment)
+COATING_DEFAULTS   = {
+    "R005": ("Matrigel used (mL)", 1.0),
+    "R010": ("Laminin-111 coating used (mL)", 0.0),
+}
 VESSEL_CITATION    = "ATCC Complete Guide to Cell Culture; Corning Cell Culture Guide."
 TRYPSIN_VOL_CITATION = "Corning Cell Culture Guide -- standard trypsin dissociation volumes."
 
@@ -181,6 +191,7 @@ def alt_cpl(arow):
 
 
 def fmt_n(n):
+    if n == 0:     return "0"
     if n < 0.001:  return f"{n:.5f}"
     if n < 0.01:   return f"{n:.4f}"
     if n < 1:      return f"{n:.3f}"
@@ -258,13 +269,26 @@ def calculate_impact(cl_row, vessel_type, n_vessels, duration_days, change_freq_
             continue
 
         mid = float(mid_raw)
+        unit_l = r["unit"].strip().lower()
 
         if rid in extra_quantities:
-            qty_g  = extra_quantities[rid]
-            qty_kg = qty_g / 1000.0
-            vol_L  = qty_kg
-            amount_display = f"{qty_g:.2f} g"
-            amount_unit    = "kg"
+            qty = extra_quantities[rid]
+            if unit_l == "ml":
+                vol_L = qty                       # animals_per_unit is per mL
+                amount_display = f"{qty:.2f} mL"
+                amount_unit    = "mL"
+            elif unit_l == "kg":
+                vol_L = qty / 1000.0              # qty entered in grams
+                amount_display = f"{qty:.2f} g"
+                amount_unit    = "kg"
+            elif unit_l in ("gram", "g"):
+                vol_L = qty                       # qty in grams, mid per gram
+                amount_display = f"{qty:.2f} g"
+                amount_unit    = "gram"
+            else:                                 # liter-based
+                vol_L = qty / 1000.0             # qty entered in mL
+                amount_display = f"{qty:.1f} mL"
+                amount_unit    = "liter"
         elif rid in ("R001", "R002", "R003"):
             pct   = serum_dict.get(rid, 0.0)
             vol_L = total_media_L * pct / 100.0
@@ -291,16 +315,23 @@ def calculate_impact(cl_row, vessel_type, n_vessels, duration_days, change_freq_
         else:
             vrow = None
 
-        cpl = vendor_cpl(vrow) if vrow is not None else None
-        if rid == "R007" and vrow is not None:
+        # cost per (unit basis matching vol_L), derived from the vendor pack size
+        cpl = vendor_cpl(vrow) if vrow is not None else None   # $ per liter
+        if vrow is not None and unit_l in ("kg", "gram", "g"):
             pack = vrow["pack_size"].strip().lower()
-            mg   = re.match(r"^(\d+)\s*g$", pack)
+            mg   = re.match(r"^(\d+(?:\.\d+)?)\s*g$", pack)
             mkg  = re.match(r"^(\d+(?:\.\d+)?)\s*kg$", pack)
             cost_raw = parse_cost(vrow["cost_per_unit_usd"])
+            cpl = None
             if cost_raw is not None:
-                if mg:  cpl = cost_raw / (float(mg.group(1)) / 1000.0)
-                elif mkg: cpl = cost_raw / float(mkg.group(1))
-                else: cpl = None
+                if unit_l == "kg":
+                    if mg:    cpl = cost_raw / (float(mg.group(1)) / 1000.0)
+                    elif mkg: cpl = cost_raw / float(mkg.group(1))
+                else:  # per gram
+                    if mg:    cpl = cost_raw / float(mg.group(1))
+                    elif mkg: cpl = cost_raw / (float(mkg.group(1)) * 1000.0)
+        elif vrow is not None and unit_l == "ml":
+            cpl = cpl / 1000.0 if cpl is not None else None    # $/L -> $/mL
         cost = cpl * vol_L if cpl is not None else None
 
         citations.append({"what": f"{r['name']} -- {mid} animals per {r['unit']}",
@@ -458,12 +489,19 @@ def main():
         if st.sidebar.checkbox(f"Override serum % (default: {default_pct})"):
             serum_override = float(st.sidebar.slider("FBS %", 0, 20, 10))
 
+    # reagents needing a manual quantity: experiment-defined + coating reagents from the cell line
+    needed = dict(exp_type["extra_reagents"])
+    if exp_type["uses_cell_line"] and cl_row is not None:
+        for rid in parse_components(cl_row["animal_derived_components"]):
+            if rid in COATING_DEFAULTS and rid not in needed:
+                needed[rid] = COATING_DEFAULTS[rid]
+
     extra_quantities = {}
-    if exp_type["extra_reagents"]:
+    if needed:
         st.sidebar.markdown("---")
         st.sidebar.subheader("Reagent quantities")
-        for rid, (label, default) in exp_type["extra_reagents"].items():
-            qty = st.sidebar.number_input(label, min_value=0.0, value=default, step=0.05)
+        for rid, (label, default) in needed.items():
+            qty = st.sidebar.number_input(label, min_value=0.0, value=float(default), step=0.05, key=f"qty_{rid}")
             if qty > 0: extra_quantities[rid] = qty
 
     component_ids = []
@@ -640,7 +678,7 @@ def main():
         if not any_alts:
             st.info("No alternatives found for the reagents in this experiment.")
 
-        if any(r["reagent_id"] in NOT_CALCULABLE_RIDS for r in results):
+        if any(r["reagent_id"] in EHS_MATRIX_RIDS for r in results):
             st.warning("Matrigel/Laminin note: GrowDex and VitroGel did NOT support vascular organoid survival "
                        "(Scientific Reports 2025, DOI:10.1038/s41598-025-20091-w). Verify per-application.")
 
