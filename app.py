@@ -1,5 +1,5 @@
 """
-NAM Animal Impact Calculator  v1.4
+NAM Animal Impact Calculator  v1.5
 Run with:  streamlit run app.py
 License:   MIT
 """
@@ -267,22 +267,26 @@ def calculate_impact(cl_row, vessel_type, n_vessels, duration_days, change_freq_
         unit_l = r["unit"].strip().lower()
 
         if rid in extra_quantities:
-            qty = extra_quantities[rid]
+            # manual amounts are entered PER VESSEL; total = per-vessel x number of vessels
+            per_qty = extra_quantities[rid]
+            n = n_vessels if exp_type["uses_vessels"] else 1
+            qty = per_qty * n
+            scale_note = f" ({per_qty:g} x {n})" if n > 1 else ""
             if unit_l == "ml":
                 vol_L = qty                       # animals_per_unit is per mL
-                amount_display = f"{qty:.2f} mL"
+                amount_display = f"{qty:.2f} mL{scale_note}"
                 amount_unit    = "mL"
             elif unit_l == "kg":
                 vol_L = qty / 1000.0              # qty entered in grams
-                amount_display = f"{qty:.2f} g"
+                amount_display = f"{qty:.2f} g{scale_note}"
                 amount_unit    = "kg"
             elif unit_l in ("gram", "g"):
                 vol_L = qty                       # qty in grams, mid per gram
-                amount_display = f"{qty:.2f} g"
+                amount_display = f"{qty:.2f} g{scale_note}"
                 amount_unit    = "gram"
             else:                                 # liter-based
                 vol_L = qty / 1000.0             # qty entered in mL
-                amount_display = f"{qty:.1f} mL"
+                amount_display = f"{qty:.1f} mL{scale_note}"
                 amount_unit    = "liter"
         elif rid in ("R001", "R002", "R003"):
             pct   = serum_dict.get(rid, 0.0)
@@ -493,9 +497,14 @@ def main():
     if relevant:
         st.sidebar.markdown("---")
         st.sidebar.subheader("Amounts used")
-        st.sidebar.caption("Enter how much of each animal-derived reagent you used. "
-                           "Leave at 0 to auto-calculate serum/trypsin from the culture setup, "
-                           "or to omit a reagent you did not use.")
+        if exp_type["uses_vessels"]:
+            st.sidebar.caption("Enter the amount of each reagent used PER VESSEL "
+                               "(total = per-vessel x number of vessels). "
+                               "Leave at 0 to auto-calculate serum/trypsin from the culture setup, "
+                               "or to omit a reagent you did not use.")
+        else:
+            st.sidebar.caption("Enter the total amount of each animal-derived reagent you used, "
+                               "or leave at 0 to omit a reagent.")
         for rid in relevant:
             rdf = reagents[reagents["reagent_id"] == rid]
             if rdf.empty:
@@ -503,7 +512,8 @@ def main():
             rr = rdf.iloc[0]
             u = rr["unit"].strip().lower()
             in_unit = "mL" if (u == "ml" or "liter" in u) else "g"
-            qty = st.sidebar.number_input(f"{rr['name']} ({in_unit})",
+            unit_lbl = f"{in_unit}/vessel" if exp_type["uses_vessels"] else in_unit
+            qty = st.sidebar.number_input(f"{rr['name']} ({unit_lbl})",
                                           min_value=0.0, value=0.0, step=0.05, key=f"qty_{rid}")
             if qty > 0:
                 extra_quantities[rid] = qty
