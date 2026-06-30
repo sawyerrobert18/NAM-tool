@@ -1,5 +1,5 @@
 """
-NAM Animal Impact Calculator  v1.5
+NAM Animal Impact Calculator  v1.7
 Run with:  streamlit run app.py
 License:   MIT
 """
@@ -212,7 +212,7 @@ def cat_label(c):
 
 def calculate_impact(cl_row, vessel_type, n_vessels, duration_days, change_freq_days,
                      serum_override, vendor_sels, extra_quantities,
-                     reagents_df, vendors_df, alts_df, exp_type_key):
+                     reagents_df, vendors_df, alts_df, exp_type_key, manual_repeats=1):
     results, warnings, citations = [], [], []
     exp_type = EXPERIMENT_TYPES[exp_type_key]
 
@@ -267,11 +267,13 @@ def calculate_impact(cl_row, vessel_type, n_vessels, duration_days, change_freq_
         unit_l = r["unit"].strip().lower()
 
         if rid in extra_quantities:
-            # manual amounts are entered PER VESSEL; total = per-vessel x number of vessels
+            # manual amounts: per vessel, per application -> total = amount x vessels x times applied
             per_qty = extra_quantities[rid]
             n = n_vessels if exp_type["uses_vessels"] else 1
-            qty = per_qty * n
-            scale_note = f" ({per_qty:g} x {n})" if n > 1 else ""
+            reps = float(manual_repeats) if (manual_repeats and manual_repeats > 0) else 1.0
+            qty = per_qty * n * reps
+            _bits = [f"{per_qty:g}"] + ([str(n)] if n > 1 else []) + ([f"{reps:g}"] if reps != 1 else [])
+            scale_note = f" ({' x '.join(_bits)})" if len(_bits) > 1 else ""
             if unit_l == "ml":
                 vol_L = qty                       # animals_per_unit is per mL
                 amount_display = f"{qty:.2f} mL{scale_note}"
@@ -494,16 +496,21 @@ def main():
     relevant = [rid for rid in relevant if rid not in NO_ANIMAL_RIDS]
 
     extra_quantities = {}
+    manual_repeats = 1
     if relevant:
         st.sidebar.markdown("---")
         st.sidebar.subheader("Amounts used")
         if exp_type["uses_vessels"]:
-            st.sidebar.caption("Enter the amount of each reagent used PER VESSEL "
-                               "(total = per-vessel x number of vessels). "
-                               "Leave at 0 to auto-calculate serum/trypsin from the culture setup, "
-                               "or to omit a reagent you did not use.")
+            manual_repeats = (duration / freq) if freq else 1
+            st.sidebar.caption(
+                f"Enter the amount of each reagent used PER VESSEL, PER application "
+                f"(e.g. per media change). The tool computes the number of applications "
+                f"from your inputs: {duration} days / {freq:g} days = {manual_repeats:g}, "
+                f"then multiplies by {n_vessels} vessel(s). "
+                f"Leave at 0 to auto-calculate serum/trypsin, or to omit a reagent.")
         else:
-            st.sidebar.caption("Enter the total amount of each animal-derived reagent you used, "
+            manual_repeats = 1
+            st.sidebar.caption("Enter the total amount of each reagent used, "
                                "or leave at 0 to omit a reagent.")
         for rid in relevant:
             rdf = reagents[reagents["reagent_id"] == rid]
@@ -546,7 +553,7 @@ def main():
     results, warnings, citations = calculate_impact(
         dummy_cl, vessel_type, n_vessels, duration, float(freq),
         serum_override, vendor_sels, extra_quantities,
-        reagents, vendors, alts, exp_type_key,
+        reagents, vendors, alts, exp_type_key, manual_repeats,
     )
 
     calc_results = [r for r in results if not r.get("not_calculable")]
