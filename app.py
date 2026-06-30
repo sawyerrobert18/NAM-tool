@@ -1,5 +1,5 @@
 """
-NAM Animal Impact Calculator  v1.7
+NAM Animal Impact Calculator  v1.8
 Run with:  streamlit run app.py
 License:   MIT
 """
@@ -231,12 +231,9 @@ def calculate_impact(cl_row, vessel_type, n_vessels, duration_days, change_freq_
         serum_dict = ({"R001": float(serum_override)} if serum_override is not None
                       else parse_serum_pct(cl_row["serum_pct"], cl_id))
 
-        if cl_row["trypsin_required"].lower().startswith("yes"):
-            n_passages = duration_days / change_freq_days
-            tryp_mL    = TRYPSIN_ML[vessel_type] * n_vessels * n_passages
-            tryp_L     = tryp_mL / 1000.0
-            citations.append({"what": f"Trypsin dissociation ({vessel_type})",
-                              "source": TRYPSIN_VOL_CITATION, "url": ""})
+        # Trypsin is NOT auto-calculated: maintenance uses PBS rinse + fresh media (no trypsin).
+        # Trypsin is only counted when the user enters an amount (e.g. for passaging).
+        # tryp_L stays 0.0, so the trypsin branch below is skipped unless entered manually.
 
     reagent_ids = parse_components(cl_row["animal_derived_components"]) if exp_type["uses_cell_line"] else []
     for rid in extra_quantities:
@@ -507,7 +504,8 @@ def main():
                 f"(e.g. per media change). The tool computes the number of applications "
                 f"from your inputs: {duration} days / {freq:g} days = {manual_repeats:g}, "
                 f"then multiplies by {n_vessels} vessel(s). "
-                f"Leave at 0 to auto-calculate serum/trypsin, or to omit a reagent.")
+                f"Serum left at 0 is auto-calculated from the media volume; "
+                f"trypsin counts only if you enter an amount (e.g. when passaging).")
         else:
             manual_repeats = 1
             st.sidebar.caption("Enter the total amount of each reagent used, "
