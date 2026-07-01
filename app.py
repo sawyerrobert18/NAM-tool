@@ -1,5 +1,5 @@
 """
-NAM Animal Impact Calculator  v1.8
+NAM Animal Impact Calculator  v1.9
 Run with:  streamlit run app.py
 License:   MIT
 """
@@ -637,8 +637,11 @@ def main():
                                    "Change frequency": f"every {freq} days"})
         if extra_quantities:
             for rid, qty in extra_quantities.items():
-                r_name = reagents[reagents["reagent_id"] == rid]["name"].values
-                inputs_summary[r_name[0] if len(r_name) else rid] = f"{qty} g"
+                rrow  = reagents[reagents["reagent_id"] == rid]
+                r_name = rrow["name"].values
+                u = rrow["unit"].values[0].strip().lower() if len(rrow) else ""
+                iu = "mL" if (u == "ml" or "liter" in u) else "g"
+                inputs_summary[r_name[0] if len(r_name) else rid] = f"{qty} {iu}/vessel"
         try:
             pdf_bytes = build_pdf(
                 cl_row["common_name"] if cl_row is not None else exp_type_key,
