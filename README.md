@@ -1,13 +1,13 @@
 # NAM Animal Impact Calculator
 
-A web tool for wet-lab researchers to audit the **animal impact of their cell-culture reagent choices** — and to find certified animal-free alternatives. You pick an experiment and cell line, enter the amounts you actually use, and the tool back-calculates how many animals were required to produce those reagents, with **every figure traceable to a published source**.
+A web tool for wet-lab researchers to audit the **animal impact of their cell-culture reagent choices** - and to find certified animal-free alternatives. You pick an experiment and cell line, enter the amounts you actually use, and the tool back-calculates how many animals were required to produce those reagents, with **every figure traceable to a published source**.
 
 Built in the spirit of the 3Rs and New Approach Methodologies (NAMs): make the hidden animal cost of routine reagents visible, quantifiable, and citable.
 
 > **Author:** Muteeb Syed, Long island university, brooklyn.
 > **Live app:** https://nam-tool-hmpkgigrqmsgagbjkrwavi.streamlit.app
 > **Source:** [https://github.com/sawyerrobert18/repo](https://github.com/sawyerrobert18/NAM-tool)
-> **Contact:** sawyerrobert18@gmail.com
+> **Contact:** sawyerrobert18@gmail.com/muteebahmed.syed@my.liu.edu
 > **License:** MIT
 
 ---
@@ -18,16 +18,16 @@ Back-calculates animal impact of animal-derived reagents (fetal bovine serum, ot
 Distinguishes killing from use. Reagents are categorised as *killed*, *killed (by-product)*, or *used not killed* (e.g. serum from live-donor herds via venipuncture), so the headline number is not inflated.
 Cites every number. Each figure links to a primary source (product sheet, peer-reviewed paper, or vendor Certificate of Analysis). Estimates that are derived rather than directly published are flagged with an asterisk (`*`, Tier-2 — see below).
 Surfaces animal-free alternatives for each reagent (e.g. human platelet lysate, recombinant laminins, synthetic matrices), with performance notes, price, and literature citations.
-Exports a grant-ready PDF summarising inputs, per-reagent impact, costs, alternatives, and the full citation list — suitable for a Methods section or an ethics/funding application.
+Exports a grant-ready PDF summarising inputs, per-reagent impact, costs, alternatives, and the full citation list - suitable for a Methods section or an ethics/funding application.
 
 ## How the numbers are derived
 
 Every reagent carries a **data tier**:
 
-Tier 1 — Direct. The animals-per-unit figure comes straight from a primary source (e.g. FBS: industry-average serum volume per fetal calf).
-Tier 2 — Derived (`*`). No direct per-animal figure exists, so the value is reconstructed from *cited* anatomical/biochemical quantities multiplied by one clearly-stated efficiency term (e.g. bovine trypsin from pancreas mass × trypsin content × extraction yield). Tier-2 figures are always shown with an asterisk and a range.
+Tier 1 - Direct. The animals-per-unit figure comes straight from a primary source (e.g. FBS: industry-average serum volume per fetal calf).
+Tier 2 - Derived (`*`). No direct per-animal figure exists, so the value is reconstructed from *cited* anatomical/biochemical quantities multiplied by one clearly-stated efficiency term (e.g. bovine trypsin from pancreas mass × trypsin content × extraction yield). Tier-2 figures are always shown with an asterisk and a range.
 
-The full derivation for every Tier-2 reagent — including sources and assumptions — is documented in [`back_calculation_methodology.md`](back_calculation_methodology.md). The guiding rule: *if a number can't be defended there, it doesn't appear in the tool.
+The full derivation for every Tier-2 reagent - including sources and assumptions - is documented in [`back_calculation_methodology.md`](back_calculation_methodology.md). The guiding rule: *if a number can't be defended there, it doesn't appear in the tool.
 
 ## Running it locally
 
@@ -62,7 +62,7 @@ Planned: a checkbox-based reagent picker scoped per experiment type; separate ma
 
 ## Feedback
 
-Corrections to any cited figure are especially welcome - the tool is only as good as its sources. Please open an issue on the repository or email _[CONTACT]_.
+Corrections to any cited figure are especially welcome - the tool is only as good as its sources. Please open an issue on the repository or email - 
 
 ---
 
