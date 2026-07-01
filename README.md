@@ -63,7 +63,7 @@ Planned: a checkbox-based reagent picker scoped per experiment type; separate ma
 
 ## Feedback
 
-Corrections to any cited figure are especially welcome - the tool is only as good as its sources. Please open an issue on the repository or email - 
+Corrections to any cited figure are especially welcome - the tool is only as good as its sources. Please open an issue on the repository or email - sawyerrobert18@gmail.com/Muteebahmed.Syed@my.liu.edu
 
 ---
 
