@@ -17,7 +17,7 @@ Built in the spirit of the 3Rs and New Approach Methodologies (NAMs): make the h
 Back-calculates animal impact of animal-derived reagents (fetal bovine serum, other sera, trypsin, BSA, collagens, EHS-derived matrices, etc.) from the amount you actually consume in an experiment.
 Distinguishes killing from use. Reagents are categorised as *killed*, *killed (by-product)*, or *used not killed* (e.g. serum from live-donor herds via venipuncture), so the headline number is not inflated.
 Cites every number. Each figure links to a primary source (product sheet, peer-reviewed paper, or vendor Certificate of Analysis). 
-Estimates that are derived rather than directly published are flagged with an asterisk (`*`, Tier-2 - see below).
+Estimates that are derived rather than directly published are flagged with an asterisk (`*`, Tier-2, see below).
 Surfaces animal-free alternatives for each reagent (e.g. human platelet lysate, recombinant laminins, synthetic matrices), with performance notes, price, and literature citations.
 Exports a grant-ready PDF summarising inputs, per-reagent impact, costs, alternatives, and the full citation list - suitable for a Methods section or an ethics/funding application.
 
