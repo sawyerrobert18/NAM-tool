@@ -6,7 +6,7 @@ Built in the spirit of the 3Rs and New Approach Methodologies (NAMs): make the h
 
 > **Author:** Muteeb Syed, Long island university, brooklyn.
 > **Live app:** https://nam-tool-hmpkgigrqmsgagbjkrwavi.streamlit.app
-> **Source:** https://github.com/sawyerrobert18/repo
+> **Source:** [https://github.com/sawyerrobert18/repo](https://github.com/sawyerrobert18/NAM-tool)
 > **Contact:** sawyerrobert18@gmail.com
 > **License:** MIT
 
